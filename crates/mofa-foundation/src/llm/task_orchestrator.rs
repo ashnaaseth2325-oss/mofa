@@ -214,8 +214,14 @@ impl TaskOrchestrator {
 
     /// Spawn a background task
     pub async fn spawn(&self, prompt: &str, origin: TaskOrigin) -> Result<String> {
-        // Check concurrent limit
-        let active_count = self.active_tasks.read().await.len();
+        // Check concurrent limit (exclude completed/failed tasks still in the grace-period window)
+        let active_count = self
+            .active_tasks
+            .read()
+            .await
+            .values()
+            .filter(|t| !t.is_finished())
+            .count();
         if active_count >= self.config.max_concurrent_tasks {
             return Err(anyhow::anyhow!(
                 "Maximum concurrent tasks ({}) reached",
